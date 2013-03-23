@@ -1,8 +1,7 @@
 # Copyright (c) 2013 Jasper den Ouden, under the MIT license, 
 # see doc/mit.txt from the project directory.
 
-#import Base.*
-using Treekenize#, OJasper_Util
+using Treekenize
 
 #Generates a random tree into stdout and returns the same list for later comparison.
 function rnd_tree(to_stream::IOStream, p::Number,  depth::Integer,max_len::Integer, begin_end)
@@ -48,7 +47,7 @@ function test_treekenize(p::Number,  depth::Integer,max_len::Integer,
     read_tree = treekenize(stream, (begin_end, none_incorrect(begin_end)),
                            ";\n",10, max_be_len)
     
-    compare_tree(tree, compare::TExpr) = compare_tree(tree, compare.body)
+    compare_tree(tree, compare::StrExpr) = compare_tree(tree, compare.body)
     function compare_tree(tree, compare)
         list = {}
         for el in compare

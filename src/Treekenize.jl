@@ -5,10 +5,10 @@ module Treekenize
 
 import Base.readline
 
-export treekenize, TExpr #Function for making trees itself.
+export treekenize, StrExpr #Function for making trees itself.
 export none_incorrect
 #Each element needs these to know what to do.
-export el_head, el_start,el_end,el_seeker
+export head_expr, head_begin,head_end,head_infix, head_seeker
 
 #Some extra transformations.(might move to other module)
 #export infix_syms, combine_heads,remove_heads, remove_heads_1
@@ -37,17 +37,12 @@ function readline(cs::ConvenientStream)
     cs.line = "$(cs.line)$add_line"
 end
 
-type TExpr
-    head
-    body
-end
-
 treekenize(stream::ConvenientStream, seeker::Nothing, end_str,
            limit_n::Integer, max_len::Integer) = end_str
 function treekenize(stream::ConvenientStream, seeker::Function, end_str,
                     limit_n::Integer, max_len::Integer)
     new_seeker = seeker(stream,end_str)
-    return treekenize(stream, new_seeker, el_end(new_seeker),
+    return treekenize(stream, new_seeker, head_end(new_seeker),
                       limit_n,max_len)
 end
 
@@ -60,8 +55,19 @@ type IncorrectEnd
 end
 
 #Turns a stream into a tree of stuff.
-function treekenize(stream::ConvenientStream, which::(Array,Array), end_str,
-                    limit_n::Integer, max_len::Integer)
+# `stream`  is the input stream
+# `which`   is two arrays: 
+#           elements of the first indicate(extractable with functions-):
+#              `head_expr`, produces an 'expression' from a list.
+#              `head_begin` what string starts it.
+#              `head_end`   what end the expression will have.
+#           the second is simply an array of disallowed strings.
+# `end_str`      String that ends the current tree.
+# `try_cnt`      Max number of attempts reading a line.
+# `longest_len`  Longest word that begins/ends.
+function treekenize(stream::ConvenientStream, which::(Array,Array),
+                    end_str,
+                    try_cnt::Integer, longest_len::Integer)
     seeker,not_incorrect = which
     list = {}
     n=0
@@ -73,20 +79,20 @@ function treekenize(stream::ConvenientStream, which::(Array,Array), end_str,
         return first(range),last(range)+1
     end
     
-    while n< limit_n
+    while n< try_cnt
         pick = nothing
         min_s = typemax(Int64)
         min_e = 0
         
         search_str = stream.line
         for el in seeker
-            s,e = first_last_search(search_str, el_start(el))
+            s,e = first_last_search(search_str, head_begin(el))
             if s!=0 && s< min_s
                 pick = el
                 min_s = s
                 min_e = e
-                if min_s+max_len < length(search_str)
-                    search_str =  search_str[1:min_s+max_len]
+                if min_s + longest_len < length(search_str)
+                    search_str =  search_str[1:min_s + longest_len]
                 end
             end
         end
@@ -121,10 +127,10 @@ function treekenize(stream::ConvenientStream, which::(Array,Array), end_str,
             end
             forward(stream, min_e)
            #Push branch.
-            push!(list, TExpr(el_head(pick),
-                              treekenize(stream, el_seeker(which,pick),
-                                         el_end(pick), 
-                                         limit_n, max_len)))
+            push!(list, head_expr(pick,
+                                  treekenize(stream, head_seeker(which,pick),
+                                             head_end(pick), 
+                                             try_cnt, longest_len)))
         end
     end
     #TODO failed to end everything, this is potentially an error!
@@ -132,14 +138,15 @@ function treekenize(stream::ConvenientStream, which::(Array,Array), end_str,
     return list
 end
 
+#Makes the ConvenientStream for you.
 treekenize(stream::IOStream, which::(Array,Array), end_str,
-           limit_n::Integer, max_len::Integer) = 
-    treekenize(ConvenientStream(stream), which, end_str, limit_n,max_len)
+           try_cnt::Integer, longest_len::Integer) = 
+    treekenize(ConvenientStream(stream), which, end_str, try_cnt,longest_len)
     
-#not_incorrect defaults to not checking anything.
+#(this version:)not_incorrect defaults to not checking anything.
 treekenize{T}(thing::T, seeker::Array, end_str, 
-              limit_n::Integer, max_len::Integer) =
-    treekenize(thing, (seeker,{}), end_str, limit_n,max_len)
+              try_cnt::Integer, longest_len::Integer) =
+    treekenize(thing, (seeker,{}), end_str, try_cnt,longest_len)
 
 #If _all_ the given seekers may not be present incorrectly, this tries to
 # make the list to detect it.
@@ -153,23 +160,25 @@ function none_incorrect(seeker::Array)
     return list
 end
 
-el_head{T}(el::T) = el_start(el)
-
-#Some basic elements.
-el_start{End,Seeker}(el::(String,End,Seeker))  = el[1]
-el_end{End,Seeker}(el::(String,End,Seeker))    = el[2]
-el_seeker{End,Seeker}(got, el::(String,End,Seeker)) = el[3]
-
-el_start(el::(String,String))      = el[1]
-el_end(el::(String,String))        = el[2]
-el_seeker(got,el::(String,String)) = got
-
-#Infix on TExprs is heads
-texpr_infix(thing, heads) = thing
-texpr_infix(tree::TExpr, heads) = TExpr(tree.head, texpr_infix(tree.body))
-
-function texpr_infix(tree::Array, heads)
-    #TODO
+type StrExpr #Structure for default AST tree.
+    head::String
+    body::Array
 end
+
+#Head is defaultly just the begin.
+head_expr{T}(el::T, list::Array) = StrExpr(head_begin(el), list)
+
+#The (String,String);(beginner,ender) seeker;
+head_begin(el::(String,String))      = el[1]
+head_end(el::(String,String))        = el[2]
+head_infix(el::(String,String))      = Array(String,0) #No infix notation.
+head_seeker(got,el::(String,String)) = got #Just keeps going with the same seeker.
+
+#The (String,String,Array{String,1}); (beginner,ender, infix order)
+typealias BEI (String,String,Array{String,1}) #Convenience.
+head_begin(el::BEI)      = el[1]
+head_end(el::BEI)        = el[2]
+head_infix(el::BEI)      = el[3]
+head_seeker(got,el::BEI) = got #Just keeps going with the same seeker.
 
 end #module Treekenize

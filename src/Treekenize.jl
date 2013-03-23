@@ -1,4 +1,4 @@
-# Copyright (c) 2012 Jasper den Ouden, under the MIT license, 
+# Copyright (c) 2013 Jasper den Ouden, under the MIT license, 
 # see doc/mit.txt from the project directory.
 
 module Treekenize
@@ -59,9 +59,6 @@ type IncorrectEnd
     got
 end
 
-#TODO some bug, seems to mysteriously skipping over the info i need. 
-#Printing all that is skipped doesnt show it, nothing else is using the stream...
-
 #Turns a stream into a tree of stuff.
 function treekenize(stream::ConvenientStream, which::(Array,Array), end_str,
                     limit_n::Integer, max_len::Integer)
@@ -70,14 +67,20 @@ function treekenize(stream::ConvenientStream, which::(Array,Array), end_str,
     n=0
     initial_n = stream.line_n
     readline(stream)
+    
+    function first_last_search(in_str, search_str)
+        range = search(in_str, search_str)
+        return first(range),last(range)+1
+    end
+    
     while n< limit_n
         pick = nothing
         min_s = typemax(Int64)
         min_e = 0
         
-        search_str = copy(stream.line) #Not really needed(presumably..)
+        search_str = stream.line
         for el in seeker
-            s,e = search(search_str, el_start(el))
+            s,e = first_last_search(search_str, el_start(el))
             if s!=0 && s< min_s
                 pick = el
                 min_s = s
@@ -87,13 +90,14 @@ function treekenize(stream::ConvenientStream, which::(Array,Array), end_str,
                 end
             end
         end
-        s,e = search(search_str, end_str)
+        s,e = first_last_search(search_str, end_str)
         search_str = search_str[1:s-1] #Warning about this guy.
         assert(s==0 || s<e)
-      #Look for spurious enders.
+      #Look for enders that dont match the begin.
+      # (Depending on input some may be allowed)
         for el in not_incorrect
-            s2,e2 = search(search_str, el)
-            #Shouldnt be inside subtree, that might be allowed.
+            s2,e2 = first_last_search(search_str, el)
+            #Shouldnt be inside subtree.
             if s2!=0 && min_e!=0 && s2<min_s 
                 throw(IncorrectEnd(initial_n, stream.line_n, end_str, el))
             end
@@ -107,7 +111,7 @@ function treekenize(stream::ConvenientStream, which::(Array,Array), end_str,
             end
             forward(stream, e)
             return list #Go up a level.
-        elseif pick==nothing #got nothing.
+        elseif pick==nothing #got nothing, fetch some more.
             n+=1
             readline(stream)
         else #Got new branch.
@@ -118,9 +122,9 @@ function treekenize(stream::ConvenientStream, which::(Array,Array), end_str,
             forward(stream, min_e)
            #Push branch.
             push!(list, TExpr(el_head(pick),
-                             treekenize(stream, el_seeker(which,pick),
-                                        el_end(pick), 
-                                        limit_n, max_len)))
+                              treekenize(stream, el_seeker(which,pick),
+                                         el_end(pick), 
+                                         limit_n, max_len)))
         end
     end
     #TODO failed to end everything, this is potentially an error!

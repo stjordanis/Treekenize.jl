@@ -45,7 +45,7 @@ function test_treekenize(p::Number,  depth::Integer,max_len::Integer,
     write(stream, ";\n");
     seek(stream,0) #Back to the beginning.
     read_tree = treekenize(stream, (begin_end, none_incorrect(begin_end)),
-                           ";\n",10, max_be_len)
+                           ("top",";\n"),10, max_be_len)
     
     compare_tree(tree, compare::StrExpr) = compare_tree(tree, compare.body)
     function compare_tree(tree, compare)

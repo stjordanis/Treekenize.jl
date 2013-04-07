@@ -11,16 +11,21 @@ language that consists of two elements:
 
 * There are 'blocks' with a beginner and an ender. For instance in Julia:
   `(`-`)`,`[`-`]` and `{`-`}` but also `begin`-`end`, `function`-`end`, 
-  `type`-`end`, and `@`,`typealias`,`const` and a new line.(But Julia has 
+  `type`-`end`, and `@`,`typealias`,`const` and a new line.
   
 * Further there is infix notation, with some order.
 
-Actually it is not just for homoiconicness, the relation between the AST-tree
-and the code is also a matter of sanity.
-
 ## Implementation
-The implementation is much more flexible than that, it can change what are the
-beginners and enders as indicated by one. But only because it can, this is not
-necessarily a smart thing to do.
+The implementation is much more flexible than that, a beginner-ender can change
+the beginners and enders insider entirely.
 
+## Problems/deviations for application to julia
+For functions to work, 'nothing or just whitespace' would have to be a potential
+infix symbol.
 
+`if` would have to be able to deal with `else` and `elseif`, perhaps extend the
+concept.
+
+`"` needs to deal with escapes.
+
+Other issues(`const`?)

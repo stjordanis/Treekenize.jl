@@ -79,7 +79,7 @@ end
 
 function test(cnt::Integer)
     for n = 1:cnt #TODO may want to test a larger variation of beginnings and ends.
-        test_treekenize(0.4, 4,2, {("(",")"), ("ska","skoe"),
+        test_treekenize(0.4, 4,2, {("(",")"), ("begin","end"),
                                    ("[","]")},4)
     end
 end

@@ -18,12 +18,24 @@ export ConvenientStream
 
 # --- end module stuff
 
+#Makes a stream with a string.
+#TODO pull request `stream(str::String)` and `stream(cmd::Cmd)`
+function stream_from_string(string::String)
+  s = memio(length(string))
+  write(s, string)
+  seek(s,0) #Need to seek to start.
+  return s
+end
+string_from_stream() = memio() #Which is a IOStream, which has a (todo name it
+
 type ConvenientStream #TODO not quite the right place to put this.
     stream::IOStream
     line::String
     line_n::Int64
 end
 ConvenientStream(stream::IOStream) = ConvenientStream(stream,"",int64(0))
+ConvenientStream(string::String) = ConvenientStream(stream_from_string(string))
+
 #Pass on @with duties.
 no_longer_with(cs::ConvenientStream) = no_longer_with(cs.stream)
 
@@ -161,7 +173,7 @@ function treekenize(stream::ConvenientStream, which::(Array,Array),
 end
 
 #Makes the ConvenientStream for you.
-treekenize(stream::IOStream, which::(Array,Array), on_head,
+treekenize{T}(stream::T, which::(Array,Array), on_head,
            try_cnt::Integer, longest_len::Integer) = 
     treekenize(ConvenientStream(stream), which, on_head, try_cnt,longest_len)
     
@@ -189,6 +201,7 @@ end
 
 #Head is defaultly just the begin.
 head_expr{T}(el::T, list::Array) = StrExpr(head_begin(el), list)
+head_expr{T}(el::T, first::StrExpr) = head_expr(el, {first})
 
 #The (String,String);(beginner,ender) seeker;
 head_begin(el::(String,String))      = el[1]
@@ -197,11 +210,13 @@ head_infix(el::(String,String))      = Array(String,0) #No infix notation.
 head_seeker(got,el::(String,String)) = got #Just keeps going with the same seeker.
 
 #The (String,String,Array{String,1}); (beginner,ender, infix order)
-typealias BEI (String,String,Array{String,1}) #Convenience.
+typealias BEI (ASCIIString,ASCIIString,Array{ASCIIString,1}) #Convenience.
 head_begin(el::BEI)      = el[1]
 head_end(el::BEI)        = el[2]
 head_infix(el::BEI)      = el[3]
 head_seeker(got,el::BEI) = got #Just keeps going with the same seeker.
+
+head_begin(x) = error("$x\n$(typeof(x[3]))")
 
 infix_str(str::String) = str
 infix_expr(str::String, list::Array) = StrExpr(str, list)

@@ -54,7 +54,7 @@ function test_treekenize(p::Number,  depth::Integer,max_len::Integer,
             if isa(el, String)
                 for sel in split(el," ")
                     if sel!=""
-                        push!(list, parse_float(sel))
+                        push!(list, parsefloat(sel))
                     end
                 end
             else
